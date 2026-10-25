@@ -52,10 +52,21 @@ affect the sender's.
 Everything lives in `localStorage` under the key `mattolisto.v1`. No network calls, no
 analytics. Clearing site data wipes the lists, so export anything you want to keep.
 
+## Deployment
+
+Pushing to `master` builds and publishes to GitHub Pages via
+`.github/workflows/deploy.yml`:
+
+**https://mattoduffo.github.io/MattoListo/**
+
+The project subpath means `vite.config.ts` sets `base` in production builds; dev
+still serves from the root.
+
 ## Installing it on a phone
 
 It is a PWA: open the deployed URL in Safari or Chrome and use *Add to Home Screen*.
-The service worker (`public/sw.js`) caches the shell, so it opens and works offline.
+`sw-template.js` is emitted as `dist/sw.js` at build time with the real hashed
+bundle filenames precached, so it opens and works with no network.
 
 ## Layout
 
@@ -69,4 +80,5 @@ src/
     date.ts            local-day handling for due dates
     colors.ts          palette and glyphs
     types.ts
+sw-template.js         service worker, precache list injected at build time
 ```

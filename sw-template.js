@@ -1,9 +1,18 @@
-const CACHE = 'mattolisto-v1';
-const SHELL = ['.', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
+// Template for dist/sw.js. The placeholders below are filled in at build time
+// from the real bundle — see the serviceWorker plugin in vite.config.ts.
+const CACHE = 'mattolisto-__VERSION__';
+const SHELL = __PRECACHE__;
+
+// Match on the URL alone: a host that sends Vary (preview sends `Vary: Origin`)
+// would otherwise turn every precached asset into a cache miss.
+const MATCH = { ignoreVary: true };
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()),
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(SHELL))
+      .then(() => self.skipWaiting()),
   );
 });
 
@@ -26,22 +35,26 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put('index.html', copy));
+          void caches.open(CACHE).then((cache) => cache.put('index.html', copy));
           return response;
         })
-        .catch(() => caches.match('index.html').then((hit) => hit || caches.match('.'))),
+        .catch(() =>
+          caches
+            .match('index.html', MATCH)
+            .then((hit) => hit || caches.match('.', MATCH)),
+        ),
     );
     return;
   }
 
-  // Assets: cache first, refreshed in the background.
+  // Everything else: cache first, refreshed in the background.
   event.respondWith(
-    caches.match(request).then((hit) => {
+    caches.match(request, MATCH).then((hit) => {
       const network = fetch(request)
         .then((response) => {
           if (response.ok) {
             const copy = response.clone();
-            caches.open(CACHE).then((cache) => cache.put(request, copy));
+            void caches.open(CACHE).then((cache) => cache.put(request, copy));
           }
           return response;
         })
