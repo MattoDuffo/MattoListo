@@ -35,5 +35,8 @@ function serviceWorker(): Plugin {
 // in dev. Keyed off mode, not command, so `vite preview` also uses the subpath.
 export default defineConfig(({ mode }) => ({
   base: mode === 'production' ? '/MattoListo/' : '/',
+  // Vite's default target assumes iOS 16.4; an older iPhone then fails to parse
+  // the bundle and renders nothing at all. Transpile further down than that.
+  build: { target: ['es2020', 'safari14', 'chrome87', 'firefox78'] },
   plugins: [react(), serviceWorker()],
 }));

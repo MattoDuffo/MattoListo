@@ -19,6 +19,47 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Without this a failure to parse or run the bundle leaves a blank page
+         and no way to find out why, which is untestable on a phone. -->
+    <script>
+      (function () {
+        var shown = false;
+        function report(what, detail) {
+          if (shown) return;
+          var root = document.getElementById('root');
+          // Once the app has rendered it owns the screen; a later error must
+          // not wipe a working app off it.
+          if (!root || root.childNodes.length > 0) return;
+          shown = true;
+          root.innerHTML =
+            '<div style="font:15px/1.5 -apple-system,system-ui,sans-serif;padding:24px;max-width:40em;margin:0 auto">' +
+            '<h1 style="font-size:19px;margin:0 0 8px">MattoListo could not start</h1>' +
+            '<p style="color:#8a8a8e;margin:0 0 16px">Send this text to whoever is helping you.</p>' +
+            '<pre id="err" style="white-space:pre-wrap;word-break:break-word;background:rgba(120,120,128,.14);' +
+            'padding:14px;border-radius:12px;font-size:13px;margin:0"></pre></div>';
+          var pre = document.getElementById('err');
+          if (pre) {
+            pre.textContent =
+              what + '\n' + detail + '\n\n' + navigator.userAgent + '\n' + location.href;
+          }
+        }
+        window.addEventListener('error', function (e) {
+          report(
+            e.message || 'Script error',
+            (e.filename || '') + (e.lineno ? ':' + e.lineno : '') + (e.error && e.error.stack ? '\n' + e.error.stack : ''),
+          );
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          report('Unhandled rejection', String((e.reason && e.reason.stack) || e.reason));
+        });
+        setTimeout(function () {
+          var root = document.getElementById('root');
+          if (root && root.childNodes.length === 0) {
+            report('The app did not render', 'No error was reported within 8 seconds.');
+          }
+        }, 8000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
