@@ -25,41 +25,64 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+function offlineResponse() {
+  return new Response('Offline', {
+    status: 503,
+    statusText: 'Offline',
+    headers: { 'Content-Type': 'text/plain' },
+  });
+}
+
+/** Scoped to the current cache, so markup and its hashed assets always agree. */
+function fromCache(key) {
+  return caches.open(CACHE).then((cache) => cache.match(key, MATCH));
+}
+
+function store(request, response) {
+  if (!response.ok) return;
+  const copy = response.clone();
+  void caches.open(CACHE).then((cache) => cache.put(request, copy));
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET' || new URL(request.url).origin !== location.origin) return;
 
-  // Navigations: network first so a new build lands, cached shell when offline.
+  // Every path below resolves to a Response. Resolving respondWith with
+  // undefined fails the request outright, which for a script tag means a blank
+  // page and no error anywhere.
+
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          void caches.open(CACHE).then((cache) => cache.put('index.html', copy));
+          store('index.html', response);
           return response;
         })
         .catch(() =>
-          caches
-            .match('index.html', MATCH)
-            .then((hit) => hit || caches.match('.', MATCH)),
+          fromCache('index.html')
+            .then((hit) => hit || fromCache('.'))
+            .then((hit) => hit || offlineResponse()),
         ),
     );
     return;
   }
 
-  // Everything else: cache first, refreshed in the background.
   event.respondWith(
-    caches.match(request, MATCH).then((hit) => {
-      const network = fetch(request)
+    fromCache(request).then((hit) => {
+      if (hit) {
+        // Refresh in the background; a failure here must not affect the page.
+        void fetch(request)
+          .then((response) => store(request, response))
+          .catch(() => {});
+        return hit;
+      }
+      return fetch(request)
         .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            void caches.open(CACHE).then((cache) => cache.put(request, copy));
-          }
+          store(request, response);
           return response;
         })
-        .catch(() => hit);
-      return hit || network;
+        .catch(() => offlineResponse());
     }),
   );
 });

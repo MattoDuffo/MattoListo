@@ -19,20 +19,74 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- Without this a failure to parse or run the bundle leaves a blank page
-         and no way to find out why, which is untestable on a phone. -->
+    <!-- A failed start is otherwise invisible: a script that never loads
+         reports no JavaScript error, so the page just stays blank. Catch that,
+         try once to clear a bad worker or cache, and only then show the error. -->
     <script>
       (function () {
+        var HEALED = 'mattolisto.recovering';
         var shown = false;
-        function report(what, detail) {
-          if (shown) return;
+
+        function rendered() {
           var root = document.getElementById('root');
-          // Once the app has rendered it owns the screen; a later error must
-          // not wipe a working app off it.
-          if (!root || root.childNodes.length > 0) return;
+          return !!root && root.childNodes.length > 0;
+        }
+
+        function recover() {
+          try {
+            if (sessionStorage.getItem(HEALED)) return false;
+            sessionStorage.setItem(HEALED, '1');
+          } catch (e) {
+            return false;
+          }
+          var jobs = [];
+          try {
+            if (navigator.serviceWorker) {
+              jobs.push(
+                navigator.serviceWorker.getRegistrations().then(function (regs) {
+                  return Promise.all(
+                    regs.map(function (r) {
+                      return r.unregister();
+                    }),
+                  );
+                }),
+              );
+            }
+            if (window.caches) {
+              jobs.push(
+                caches.keys().then(function (keys) {
+                  return Promise.all(
+                    keys.map(function (k) {
+                      return caches.delete(k);
+                    }),
+                  );
+                }),
+              );
+            }
+          } catch (e) {
+            /* fall through to the reload regardless */
+          }
+          Promise.all(jobs)
+            .catch(function () {})
+            .then(function () {
+              location.reload();
+            });
+          return true;
+        }
+
+        function report(what, detail) {
+          if (shown || rendered()) return;
           shown = true;
+          var root = document.getElementById('root');
+          if (!root) return;
+          var wrap =
+            '<div style="font:15px/1.5 -apple-system,system-ui,sans-serif;padding:24px;max-width:40em;margin:0 auto">';
+          if (recover()) {
+            root.innerHTML = wrap + '<h1 style="font-size:19px;margin:0">Reloading…</h1></div>';
+            return;
+          }
           root.innerHTML =
-            '<div style="font:15px/1.5 -apple-system,system-ui,sans-serif;padding:24px;max-width:40em;margin:0 auto">' +
+            wrap +
             '<h1 style="font-size:19px;margin:0 0 8px">MattoListo could not start</h1>' +
             '<p style="color:#8a8a8e;margin:0 0 16px">Send this text to whoever is helping you.</p>' +
             '<pre id="err" style="white-space:pre-wrap;word-break:break-word;background:rgba(120,120,128,.14);' +
@@ -43,20 +97,33 @@
               what + '\n' + detail + '\n\n' + navigator.userAgent + '\n' + location.href;
           }
         }
-        window.addEventListener('error', function (e) {
-          report(
-            e.message || 'Script error',
-            (e.filename || '') + (e.lineno ? ':' + e.lineno : '') + (e.error && e.error.stack ? '\n' + e.error.stack : ''),
-          );
-        });
+
+        // Capture phase: a script or stylesheet that fails to load fires an
+        // error event that does not bubble, so a plain listener never sees it.
+        window.addEventListener(
+          'error',
+          function (e) {
+            var target = e.target;
+            if (target && target !== window && (target.src || target.href)) {
+              report('Failed to load a file', String(target.src || target.href));
+              return;
+            }
+            report(
+              e.message || 'Script error',
+              (e.filename || '') +
+                (e.lineno ? ':' + e.lineno : '') +
+                (e.error && e.error.stack ? '\n' + e.error.stack : ''),
+            );
+          },
+          true,
+        );
+
         window.addEventListener('unhandledrejection', function (e) {
           report('Unhandled rejection', String((e.reason && e.reason.stack) || e.reason));
         });
+
         setTimeout(function () {
-          var root = document.getElementById('root');
-          if (root && root.childNodes.length === 0) {
-            report('The app did not render', 'No error was reported within 8 seconds.');
-          }
+          if (!rendered()) report('The app did not render', 'Nothing was reported within 8 seconds.');
         }, 8000);
       })();
     </script>
