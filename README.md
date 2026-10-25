@@ -29,7 +29,7 @@ Completed ones are hidden until you ask for them.
 | **Mark All as Completed / Incomplete** | One action for the whole list, in the ⋯ menu. |
 | **Select Reminders** | Multi-select mode with **Select All** / **Deselect All**, then complete, uncomplete, move to another list, or delete the selection in one go. |
 | **Export a list** | Share link, plain text, JSON, or a downloadable file — see below. |
-| **Import a list** | Paste any of those formats, or open a file. Plain checklists work too. |
+| **Import a list** | Paste any of those formats, or open a file. Plain checklists work too, and the reminders can go into a new list or be appended to one you already have. |
 
 ## Sharing a list with someone else
 
@@ -44,8 +44,8 @@ Export offers:
   `<name>.mattolisto.json`.
 
 Import accepts all three, plus any rough checklist (`-`, `*`, `•`, `[x]` and a first
-line as the list name). An imported list is an independent copy — editing it does not
-affect the sender's.
+line as the list name). Pick **New list** or any existing list as the destination; an
+imported list is an independent copy — editing it does not affect the sender's.
 
 ## Storage
 

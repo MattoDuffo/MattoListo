@@ -35,6 +35,19 @@ export default function App() {
 
   useEffect(clearHash, []);
 
+  // A share link tapped while the app is already open only changes the hash,
+  // so the mount-time read above never sees it.
+  useEffect(() => {
+    const onHashChange = () => {
+      const incoming = readHashImport();
+      if (!incoming) return;
+      setSheet({ kind: 'import', incoming });
+      clearHash();
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(''), 2200);
@@ -129,12 +142,19 @@ export default function App() {
 
       {sheet.kind === 'import' && (
         <ImportSheet
+          lists={lists}
           incoming={sheet.incoming}
           onClose={() => setSheet({ kind: 'none' })}
           onImport={(payload) => {
             open(store.importList(payload));
             setSheet({ kind: 'none' });
             setToast(`“${payload.list.name}” imported`);
+          }}
+          onMerge={(listId, payload) => {
+            store.mergeIntoList(listId, payload);
+            open(listId);
+            setSheet({ kind: 'none' });
+            setToast(`${payload.items.length} added`);
           }}
         />
       )}

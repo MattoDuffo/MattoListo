@@ -1,18 +1,21 @@
 import { useRef, useState } from 'react';
 import { colorVar } from '../lib/colors';
 import { parseIncoming } from '../lib/share';
-import type { ListExport } from '../lib/types';
+import type { List, ListExport } from '../lib/types';
 
 interface Props {
+  lists: List[];
   incoming?: ListExport | null;
   onImport: (payload: ListExport) => void;
+  onMerge: (listId: string, payload: ListExport) => void;
   onClose: () => void;
 }
 
-export function ImportSheet({ incoming, onImport, onClose }: Props) {
+export function ImportSheet({ lists, incoming, onImport, onMerge, onClose }: Props) {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [parsed, setParsed] = useState<ListExport | null>(incoming ?? null);
+  const [target, setTarget] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
 
   const tryParse = (raw: string) => {
@@ -31,6 +34,14 @@ export function ImportSheet({ incoming, onImport, onClose }: Props) {
     if (!f) return;
     tryParse(await f.text());
   };
+
+  const confirm = () => {
+    if (!parsed) return;
+    if (target) onMerge(target, parsed);
+    else onImport(parsed);
+  };
+
+  const count = parsed?.items.length ?? 0;
 
   return (
     <div className="scrim" onClick={onClose}>
@@ -70,15 +81,52 @@ export function ImportSheet({ incoming, onImport, onClose }: Props) {
         )}
 
         {parsed && (
-          <div className="preview-card" style={{ paddingTop: 20 }}>
-            <div className="badge badge-lg" style={{ background: colorVar(parsed.list.color) }}>
-              {parsed.list.icon}
+          <>
+            <div className="preview-card" style={{ paddingTop: 20 }}>
+              <div className="badge badge-lg" style={{ background: colorVar(parsed.list.color) }}>
+                {parsed.list.icon}
+              </div>
+              <strong>{parsed.list.name}</strong>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+                {count} {count === 1 ? 'reminder' : 'reminders'}
+              </span>
             </div>
-            <strong>{parsed.list.name}</strong>
-            <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-              {parsed.items.length} {parsed.items.length === 1 ? 'reminder' : 'reminders'}
-            </span>
-          </div>
+
+            {lists.length > 0 && (
+              <>
+                <div className="section-label" style={{ margin: '14px 2px 8px' }}>
+                  Add to
+                </div>
+                <div className="list-card">
+                  <button
+                    className="list-row"
+                    aria-current={target === null}
+                    onClick={() => setTarget(null)}
+                  >
+                    <span className="badge" style={{ background: colorVar(parsed.list.color) }}>
+                      ＋
+                    </span>
+                    <span className="list-row-name">New list</span>
+                    {target === null && <span className="chev">✓</span>}
+                  </button>
+                  {lists.map((list) => (
+                    <button
+                      key={list.id}
+                      className="list-row"
+                      aria-current={target === list.id}
+                      onClick={() => setTarget(list.id)}
+                    >
+                      <span className="badge" style={{ background: colorVar(list.color) }}>
+                        {list.icon}
+                      </span>
+                      <span className="list-row-name">{list.name}</span>
+                      {target === list.id && <span className="chev">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         )}
 
         {error && <p className="error-text">{error}</p>}
@@ -87,12 +135,8 @@ export function ImportSheet({ incoming, onImport, onClose }: Props) {
           <button className="btn" onClick={onClose}>
             {incoming ? 'Not Now' : 'Cancel'}
           </button>
-          <button
-            className="btn primary"
-            disabled={!parsed}
-            onClick={() => parsed && onImport(parsed)}
-          >
-            Add to My Lists
+          <button className="btn primary" disabled={!parsed} onClick={confirm}>
+            {target ? `Add ${count}` : 'Add to My Lists'}
           </button>
         </div>
       </div>

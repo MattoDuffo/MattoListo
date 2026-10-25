@@ -45,6 +45,21 @@ function nextOrder(rows: Array<{ order: number }>): number {
   return rows.reduce((max, r) => Math.max(max, r.order), -1) + 1;
 }
 
+function itemsFromExport(payload: ListExport, listId: string, startOrder: number): Item[] {
+  const now = Date.now();
+  return payload.items.map((raw, idx) => ({
+    id: uid(),
+    listId,
+    title: raw.title,
+    notes: raw.notes ?? '',
+    done: Boolean(raw.done),
+    dueAt: raw.dueAt ?? null,
+    createdAt: now + idx,
+    completedAt: raw.done ? now : null,
+    order: startOrder + idx,
+  }));
+}
+
 export function useStore() {
   const [state, setState] = useState<AppState>(load);
 
@@ -154,7 +169,6 @@ export function useStore() {
 
     const importList = (payload: ListExport): string => {
       const id = uid();
-      const now = Date.now();
       setState((s) => {
         const taken = new Set(s.lists.map((l) => l.name));
         let name = payload.list.name || 'Imported List';
@@ -168,24 +182,26 @@ export function useStore() {
           name,
           color: payload.list.color,
           icon: payload.list.icon,
-          createdAt: now,
+          createdAt: Date.now(),
           order: nextOrder(s.lists),
         };
-        const items: Item[] = payload.items.map((raw, idx) => ({
-          id: uid(),
-          listId: id,
-          title: raw.title,
-          notes: raw.notes ?? '',
-          done: Boolean(raw.done),
-          dueAt: raw.dueAt ?? null,
-          createdAt: now + idx,
-          completedAt: raw.done ? now : null,
-          order: idx,
-        }));
-        return { lists: [...s.lists, list], items: [...s.items, ...items] };
+        return {
+          lists: [...s.lists, list],
+          items: [...s.items, ...itemsFromExport(payload, id, 0)],
+        };
       });
       return id;
     };
+
+    /** Appends an imported list's reminders to a list that already exists. */
+    const mergeIntoList = (listId: string, payload: ListExport) =>
+      setState((s) => ({
+        ...s,
+        items: [
+          ...s.items,
+          ...itemsFromExport(payload, listId, nextOrder(s.items.filter((i) => i.listId === listId))),
+        ],
+      }));
 
     return {
       addList,
@@ -198,6 +214,7 @@ export function useStore() {
       setDoneFor,
       moveItems,
       importList,
+      mergeIntoList,
     };
   }, []);
 
