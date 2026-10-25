@@ -163,6 +163,26 @@ export function readHashImport(): ListExport | null {
   return parseIncoming(location.hash);
 }
 
+/** `#import=<name>` names a list hosted alongside the app, for a short link. */
+export function readHashImportName(): string | null {
+  const match = /^#import=([a-z0-9][a-z0-9-]{0,63})$/.exec(location.hash);
+  return match ? match[1] : null;
+}
+
+export async function fetchSharedList(name: string): Promise<ListExport | null> {
+  try {
+    const response = await fetch(`${import.meta.env.BASE_URL}shared/${name}.json`);
+    if (!response.ok) return null;
+    const text = await response.text();
+    // A host that serves index.html for a missing file would otherwise reach
+    // the plain-text parser, which would cheerfully turn markup into reminders.
+    if (!text.trimStart().startsWith('{')) return null;
+    return parseIncoming(text);
+  } catch {
+    return null;
+  }
+}
+
 export function clearHash() {
   history.replaceState(null, '', `${location.pathname}${location.search}`);
 }

@@ -5,7 +5,7 @@ import { ListDetail } from './components/ListDetail';
 import { ListEditor } from './components/ListEditor';
 import { ShareSheet } from './components/ShareSheet';
 import { Sidebar } from './components/Sidebar';
-import { clearHash, readHashImport } from './lib/share';
+import { clearHash, fetchSharedList, readHashImport, readHashImportName } from './lib/share';
 import { useStore } from './lib/store';
 import type { ColorKey, ListExport } from './lib/types';
 
@@ -23,27 +23,35 @@ export default function App() {
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [view, setView] = useState<'sidebar' | 'detail'>('sidebar');
-  // A share link lands here: offer it as an import rather than applying it silently.
-  const [sheet, setSheet] = useState<Sheet>(() => {
-    const incoming = readHashImport();
-    return incoming ? { kind: 'import', incoming } : { kind: 'none' };
-  });
+  const [sheet, setSheet] = useState<Sheet>({ kind: 'none' });
   const [toast, setToast] = useState('');
 
   // Falls back to the first list, so deletes and a cold start both land somewhere valid.
   const active = lists.find((l) => l.id === activeId) ?? lists[0] ?? null;
 
-  useEffect(clearHash, []);
-
-  // A share link tapped while the app is already open only changes the hash,
-  // so the mount-time read above never sees it.
+  // A share link is offered as an import rather than applied silently. Two hash
+  // forms reach us: `#list=` carries the whole list, `#import=` names one hosted
+  // next to the app so the link stays short enough to tap. Both run on
+  // hashchange too, since a link opened while the app is already running never
+  // remounts it. This is the only place the hash is read or cleared — clearing
+  // it anywhere else races this handler.
   useEffect(() => {
-    const onHashChange = () => {
+    const handle = async () => {
       const incoming = readHashImport();
-      if (!incoming) return;
-      setSheet({ kind: 'import', incoming });
+      if (incoming) {
+        setSheet({ kind: 'import', incoming });
+        clearHash();
+        return;
+      }
+      const name = readHashImportName();
+      if (!name) return;
       clearHash();
+      const fetched = await fetchSharedList(name);
+      if (fetched) setSheet({ kind: 'import', incoming: fetched });
+      else setToast('That shared list could not be loaded');
     };
+    void handle();
+    const onHashChange = () => void handle();
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);

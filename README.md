@@ -39,6 +39,9 @@ Export offers:
 - **Share link** — the entire list is base64-encoded into the URL fragment
   (`…/#list=…`). Opening it offers the list as an import; nothing is applied until
   the other person taps **Add to My Lists**. The fragment never leaves their browser.
+  Long lists make long links, which are awkward to tap on a phone; for those, drop
+  the JSON into `public/shared/<name>.json` and send `…/#import=<name>` instead,
+  which the app fetches on open.
 - **Plain text** — a readable `- [ ] …` checklist, paste it anywhere.
 - **JSON** / **Download file** — exact copy including notes and dates, saved as
   `<name>.mattolisto.json`.
