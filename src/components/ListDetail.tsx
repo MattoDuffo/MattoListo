@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { colorVar } from '../lib/colors';
 import type { Item, List } from '../lib/types';
+import { Confirm } from './Confirm';
 import { ItemRow } from './ItemRow';
 import { Menu } from './Menu';
 
@@ -20,6 +21,14 @@ interface Props {
   onSetDoneFor: (ids: string[], done: boolean) => void;
   onMoveItems: (ids: string[], listId: string) => void;
   onReorder: (idsInOrder: string[]) => void;
+}
+
+function deleteTitle(items: Item[], ids: string[]): string {
+  if (ids.length > 1) return `Delete ${ids.length} reminders?`;
+  const title = items.find((i) => i.id === ids[0])?.title.trim() ?? '';
+  if (!title) return 'Delete this reminder?';
+  const short = title.length > 44 ? `${title.slice(0, 44).trimEnd()}…` : title;
+  return `Delete “${short}”?`;
 }
 
 export function ListDetail({
@@ -46,6 +55,7 @@ export function ListDetail({
   const [moving, setMoving] = useState(false);
   const [draft, setDraft] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<string[] | null>(null);
   const [preview, setPreview] = useState<string[] | null>(null);
   const addInput = useRef<HTMLInputElement>(null);
   const rows = useRef<HTMLDivElement>(null);
@@ -104,6 +114,18 @@ export function ListDetail({
     ids.splice(from, 1);
     ids.splice(to, 0, id);
     onReorder(ids);
+  };
+
+  const requestDelete = (ids: string[]) => {
+    if (!ids.length) return;
+    const targets = items.filter((i) => ids.includes(i.id));
+    // Backspacing an empty reminder away loses nothing, so it needs no prompt.
+    if (targets.every((i) => !i.title.trim() && !i.notes.trim())) {
+      onDeleteItems(ids);
+      if (selectMode) exitSelect();
+      return;
+    }
+    setPendingDelete(ids);
   };
 
   const openCount = items.filter((i) => !i.done).length;
@@ -257,7 +279,7 @@ export function ListDetail({
             }
             onToggleDone={() => onUpdateItem(item.id, { done: !item.done })}
             onChange={(patch) => onUpdateItem(item.id, patch)}
-            onDelete={() => onDeleteItems([item.id])}
+            onDelete={() => requestDelete([item.id])}
             onExpand={() => setExpandedId(item.id)}
             onEnter={() => addInput.current?.focus()}
             dragging={dragId === item.id}
@@ -335,12 +357,30 @@ export function ListDetail({
             <button
               className="text-button danger"
               disabled={!selected.length}
-              onClick={() => withSelection(onDeleteItems)}
+              onClick={() => requestDelete(selected)}
             >
               Delete
             </button>
           </div>
         </div>
+      )}
+
+      {pendingDelete && (
+        <Confirm
+          title={deleteTitle(items, pendingDelete)}
+          message={
+            pendingDelete.length === 1
+              ? 'This reminder is removed from the list.'
+              : 'They are removed from the list.'
+          }
+          confirmLabel={pendingDelete.length === 1 ? 'Delete' : `Delete ${pendingDelete.length}`}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            onDeleteItems(pendingDelete);
+            setPendingDelete(null);
+            if (selectMode) exitSelect();
+          }}
+        />
       )}
 
       {moving && (
