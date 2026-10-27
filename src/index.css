@@ -758,3 +758,31 @@ textarea {
   font-size: 14px;
   margin: 10px 0 0;
 }
+
+.drag-handle {
+  flex: none;
+  align-self: stretch;
+  min-width: 44px;
+  min-height: 38px;
+  display: grid;
+  place-items: center;
+  color: var(--text-tertiary);
+  font-size: 17px;
+  line-height: 1;
+  /* Keep the drag from scrolling the page on touch. */
+  touch-action: none;
+  cursor: grab;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+  color: var(--text-secondary);
+}
+
+.item.dragging {
+  background: var(--fill);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  position: relative;
+  z-index: 2;
+}

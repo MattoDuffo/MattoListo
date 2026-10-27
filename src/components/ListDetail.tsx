@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { colorVar } from '../lib/colors';
 import type { Item, List } from '../lib/types';
 import { ItemRow } from './ItemRow';
@@ -19,6 +19,7 @@ interface Props {
   onSetAllDone: (done: boolean) => void;
   onSetDoneFor: (ids: string[], done: boolean) => void;
   onMoveItems: (ids: string[], listId: string) => void;
+  onReorder: (idsInOrder: string[]) => void;
 }
 
 export function ListDetail({
@@ -36,6 +37,7 @@ export function ListDetail({
   onSetAllDone,
   onSetDoneFor,
   onMoveItems,
+  onReorder,
 }: Props) {
   const [showCompleted, setShowCompleted] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
@@ -43,12 +45,66 @@ export function ListDetail({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
   const [draft, setDraft] = useState('');
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string[] | null>(null);
   const addInput = useRef<HTMLInputElement>(null);
+  const rows = useRef<HTMLDivElement>(null);
 
   const visible = useMemo(
     () => (showCompleted ? items : items.filter((i) => !i.done)),
     [items, showCompleted],
   );
+
+  // While a drag is in flight the preview order drives the list; the store is
+  // only written once the pointer is released.
+  const shown = useMemo(() => {
+    if (!preview) return visible;
+    const byId = new Map(visible.map((i) => [i.id, i]));
+    const ordered = preview.map((id) => byId.get(id)).filter((i) => i !== undefined);
+    return ordered.length === visible.length ? ordered : visible;
+  }, [preview, visible]);
+
+  const startDrag = (id: string, event: ReactPointerEvent) => {
+    if (selectMode) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragId(id);
+    setPreview(visible.map((i) => i.id));
+  };
+
+  const moveDrag = (event: ReactPointerEvent) => {
+    if (!dragId || !preview || !rows.current) return;
+    const elements = Array.from(rows.current.querySelectorAll<HTMLElement>('[data-item-id]'));
+    let target = elements.length - 1;
+    for (let i = 0; i < elements.length; i++) {
+      const box = elements[i].getBoundingClientRect();
+      if (event.clientY < box.top + box.height / 2) {
+        target = i;
+        break;
+      }
+    }
+    const from = preview.indexOf(dragId);
+    if (from === -1 || from === target) return;
+    const next = [...preview];
+    next.splice(from, 1);
+    next.splice(target, 0, dragId);
+    setPreview(next);
+  };
+
+  const endDrag = () => {
+    if (dragId && preview) onReorder(preview);
+    setDragId(null);
+    setPreview(null);
+  };
+
+  const nudge = (id: string, delta: number) => {
+    const ids = visible.map((i) => i.id);
+    const from = ids.indexOf(id);
+    const to = from + delta;
+    if (from === -1 || to < 0 || to >= ids.length) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, id);
+    onReorder(ids);
+  };
 
   const openCount = items.filter((i) => !i.done).length;
   const doneCount = items.length - openCount;
@@ -179,8 +235,14 @@ export function ListDetail({
         {doneCount > 0 && ` · ${doneCount} completed`}
       </div>
 
-      <div className="items">
-        {visible.map((item) => (
+      <div
+        className="items"
+        ref={rows}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
+        {shown.map((item) => (
           <ItemRow
             key={item.id}
             item={item}
@@ -198,10 +260,13 @@ export function ListDetail({
             onDelete={() => onDeleteItems([item.id])}
             onExpand={() => setExpandedId(item.id)}
             onEnter={() => addInput.current?.focus()}
+            dragging={dragId === item.id}
+            onDragStart={(e) => startDrag(item.id, e)}
+            onNudge={(delta) => nudge(item.id, delta)}
           />
         ))}
 
-        {visible.length === 0 && (
+        {shown.length === 0 && (
           <div className="empty">
             {items.length === 0
               ? 'No reminders yet. Add one below.'

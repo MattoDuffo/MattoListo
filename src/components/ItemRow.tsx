@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type PointerEvent } from 'react';
 import { formatDay, useToday } from '../lib/date';
 import type { Item } from '../lib/types';
 
@@ -14,6 +14,9 @@ interface Props {
   onDelete: () => void;
   onExpand: () => void;
   onEnter: () => void;
+  dragging: boolean;
+  onDragStart: (e: PointerEvent) => void;
+  onNudge: (delta: number) => void;
 }
 
 export function ItemRow({
@@ -28,6 +31,9 @@ export function ItemRow({
   onDelete,
   onExpand,
   onEnter,
+  dragging,
+  onDragStart,
+  onNudge,
 }: Props) {
   const notes = useRef<HTMLTextAreaElement>(null);
   const today = useToday();
@@ -44,7 +50,10 @@ export function ItemRow({
   const showDue = expanded || item.dueAt !== null;
 
   return (
-    <div className={`item${item.done ? ' done' : ''}${selected ? ' selected' : ''}`}>
+    <div
+      className={`item${item.done ? ' done' : ''}${selected ? ' selected' : ''}${dragging ? ' dragging' : ''}`}
+      data-item-id={item.id}
+    >
       <button
         className={`circle${(selectMode ? selected : item.done) ? ' on' : ''}${selectMode ? ' select-box' : ''}`}
         style={{ color: selectMode ? 'var(--c-blue)' : accent }}
@@ -100,9 +109,28 @@ export function ItemRow({
       </div>
 
       {!selectMode && (
-        <button className="item-delete" aria-label="Delete reminder" onClick={onDelete}>
-          ✕
-        </button>
+        <>
+          <button className="item-delete" aria-label="Delete reminder" onClick={onDelete}>
+            ✕
+          </button>
+          <button
+            className="drag-handle"
+            aria-label={`Reorder ${item.title || 'reminder'}`}
+            onPointerDown={onDragStart}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                onNudge(-1);
+              }
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                onNudge(1);
+              }
+            }}
+          >
+            <span aria-hidden="true">≡</span>
+          </button>
+        </>
       )}
     </div>
   );

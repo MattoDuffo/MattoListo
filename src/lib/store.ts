@@ -167,6 +167,34 @@ export function useStore() {
       });
     };
 
+    /**
+     * Rewrites the order of the reminders currently on screen. Hidden ones keep
+     * the slots they already hold, so reordering with completed items hidden
+     * cannot shuffle them.
+     */
+    const reorderItems = (listId: string, visibleIdsInOrder: string[]) =>
+      setState((s) => {
+        const queue = [...visibleIdsInOrder];
+        const moving = new Set(visibleIdsInOrder);
+        const slots = new Map<string, number>();
+
+        s.items
+          .filter((i) => i.listId === listId)
+          .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt)
+          .forEach((item, index) => {
+            const id = moving.has(item.id) ? (queue.shift() ?? item.id) : item.id;
+            slots.set(id, index);
+          });
+
+        return {
+          ...s,
+          items: s.items.map((i) => {
+            const order = slots.get(i.id);
+            return order === undefined ? i : { ...i, order };
+          }),
+        };
+      });
+
     const importList = (payload: ListExport): string => {
       const id = uid();
       setState((s) => {
@@ -213,6 +241,7 @@ export function useStore() {
       setAllDone,
       setDoneFor,
       moveItems,
+      reorderItems,
       importList,
       mergeIntoList,
     };

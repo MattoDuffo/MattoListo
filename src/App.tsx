@@ -95,6 +95,7 @@ export default function App() {
           onSetAllDone={(done) => store.setAllDone(active.id, done)}
           onSetDoneFor={store.setDoneFor}
           onMoveItems={store.moveItems}
+          onReorder={(ids) => store.reorderItems(active.id, ids)}
         />
       ) : (
         <div className="pane pane-detail">

@@ -20,7 +20,9 @@ reminders are still open.
 
 **Reminders** — add with Enter (focus stays in the field, so you can type a whole list
 in one go), tick off, add a note or a due date by tapping the row, delete.
-Completed ones are hidden until you ask for them.
+Completed ones are hidden until you ask for them. Drag the handle on the right to
+reorder, or focus it and use the arrow keys. Reordering while completed reminders are
+hidden leaves them in the slots they already hold.
 
 ### Quality-of-life extras
 
