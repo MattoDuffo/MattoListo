@@ -333,6 +333,23 @@ textarea {
   border-bottom: 1px solid var(--separator);
 }
 
+/*
+ * The completion toggle covers the whole left column of the row (full height,
+ * up to the title), not just the 22px circle, so it is easy to hit.
+ */
+.check {
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  align-items: flex-start;
+  width: 36px;
+  margin: -10px -12px -10px -2px;
+  padding: 10px 0 10px 2px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .item.selected {
   background: var(--fill);
   border-radius: 8px;

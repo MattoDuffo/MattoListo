@@ -60,10 +60,16 @@ export function ListDetail({
   const addInput = useRef<HTMLInputElement>(null);
   const rows = useRef<HTMLDivElement>(null);
 
-  const visible = useMemo(
-    () => (showCompleted ? items : items.filter((i) => !i.done)),
-    [items, showCompleted],
-  );
+  // Completed reminders always sit below the open ones, most recently
+  // completed last.
+  const visible = useMemo(() => {
+    const open = items.filter((i) => !i.done);
+    if (!showCompleted) return open;
+    const done = items
+      .filter((i) => i.done)
+      .sort((a, b) => (a.completedAt ?? 0) - (b.completedAt ?? 0));
+    return [...open, ...done];
+  }, [items, showCompleted]);
 
   // While a drag is in flight the preview order drives the list; the store is
   // only written once the pointer is released.
