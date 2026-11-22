@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { colorVar } from '../lib/colors';
 import type { Item, List } from '../lib/types';
 import { Confirm } from './Confirm';
@@ -57,19 +57,57 @@ export function ListDetail({
   const [dragId, setDragId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string[] | null>(null);
   const [preview, setPreview] = useState<string[] | null>(null);
+  const [swipedId, setSwipedId] = useState<string | null>(null);
+  // Reminders just ticked or unticked stay where they were for a moment, so
+  // the circle visibly fills before the row moves. Maps id -> state it is
+  // still displayed with.
+  const [settling, setSettling] = useState<Map<string, Pick<Item, 'done' | 'completedAt'>>>(
+    () => new Map(),
+  );
+  const settleTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const addInput = useRef<HTMLInputElement>(null);
   const rows = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timers = settleTimers.current;
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  const toggleDone = (item: Item) => {
+    const id = item.id;
+    const shownAs = settling.get(id) ?? { done: item.done, completedAt: item.completedAt };
+    onUpdateItem(id, { done: !item.done });
+    clearTimeout(settleTimers.current.get(id));
+    setSettling((prev) => new Map(prev).set(id, shownAs));
+    settleTimers.current.set(
+      id,
+      setTimeout(() => {
+        settleTimers.current.delete(id);
+        setSettling((prev) => {
+          const next = new Map(prev);
+          next.delete(id);
+          return next;
+        });
+      }, 500),
+    );
+  };
 
   // Completed reminders always sit below the open ones, most recently
   // completed last.
   const visible = useMemo(() => {
-    const open = items.filter((i) => !i.done);
+    const placed = (i: Item) => settling.get(i.id) ?? i;
+    const open = items.filter((i) => !placed(i).done);
     if (!showCompleted) return open;
     const done = items
-      .filter((i) => i.done)
-      .sort((a, b) => (a.completedAt ?? 0) - (b.completedAt ?? 0));
+      .filter((i) => placed(i).done)
+      .sort((a, b) => (placed(a).completedAt ?? 0) - (placed(b).completedAt ?? 0));
     return [...open, ...done];
-  }, [items, showCompleted]);
+  }, [items, showCompleted, settling]);
+
+  const swipe = useCallback(
+    (id: string, open: boolean) => setSwipedId((cur) => (open ? id : cur === id ? null : cur)),
+    [],
+  );
 
   // While a drag is in flight the preview order drives the list; the store is
   // only written once the pointer is released.
@@ -283,7 +321,7 @@ export function ListDetail({
                 prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id],
               )
             }
-            onToggleDone={() => onUpdateItem(item.id, { done: !item.done })}
+            onToggleDone={() => toggleDone(item)}
             onChange={(patch) => onUpdateItem(item.id, patch)}
             onDelete={() => requestDelete([item.id])}
             onExpand={() => setExpandedId(item.id)}
@@ -291,6 +329,8 @@ export function ListDetail({
             dragging={dragId === item.id}
             onDragStart={(e) => startDrag(item.id, e)}
             onNudge={(delta) => nudge(item.id, delta)}
+            swiped={swipedId === item.id && !selectMode}
+            onSwipe={(open) => swipe(item.id, open)}
           />
         ))}
 

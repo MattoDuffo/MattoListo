@@ -325,12 +325,43 @@ textarea {
   padding-bottom: 32px;
 }
 
+.item-wrap {
+  position: relative;
+  border-bottom: 1px solid var(--separator);
+}
+
+.item-wrap.revealed {
+  overflow: hidden;
+}
+
+.item-wrap.dragging {
+  z-index: 2;
+}
+
 .item {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   padding: 10px 2px;
-  border-bottom: 1px solid var(--separator);
+  position: relative;
+  background: var(--bg-elevated);
+  /* Horizontal moves are ours (swipe to delete); vertical ones scroll. */
+  touch-action: pan-y;
+}
+
+.item.settled {
+  transition: transform 0.2s ease;
+}
+
+.swipe-delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--c-red);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 /*
@@ -422,20 +453,6 @@ textarea {
 
 .item-meta.overdue {
   color: var(--c-red);
-}
-
-.item-delete {
-  flex: none;
-  color: var(--text-tertiary);
-  font-size: 18px;
-  padding: 0 4px;
-  opacity: 0;
-  transition: opacity 0.12s ease;
-}
-
-.item:hover .item-delete,
-.item:focus-within .item-delete {
-  opacity: 1;
 }
 
 .add-row {
