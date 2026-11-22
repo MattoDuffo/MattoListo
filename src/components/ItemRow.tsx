@@ -55,12 +55,20 @@ export function ItemRow({
       data-item-id={item.id}
     >
       <button
-        className={`circle${(selectMode ? selected : item.done) ? ' on' : ''}${selectMode ? ' select-box' : ''}`}
+        className="check"
         style={{ color: selectMode ? 'var(--c-blue)' : accent }}
         aria-label={selectMode ? 'Select reminder' : item.done ? 'Mark as not completed' : 'Mark as completed'}
         aria-pressed={selectMode ? selected : item.done}
+        // Keep focus (and the on-screen keyboard) where it is, so the layout
+        // does not jump under the finger and swallow the tap.
+        onMouseDown={(e) => e.preventDefault()}
         onClick={selectMode ? onToggleSelect : onToggleDone}
-      />
+      >
+        <span
+          className={`circle${(selectMode ? selected : item.done) ? ' on' : ''}${selectMode ? ' select-box' : ''}`}
+          aria-hidden="true"
+        />
+      </button>
 
       <div className="item-body">
         <input
